@@ -1,0 +1,4 @@
+Requirments.txt
+
+streamlit
+pandas
