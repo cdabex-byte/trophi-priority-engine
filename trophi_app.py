@@ -88,7 +88,7 @@ class FinancialModel(BaseModel):
     arr: str = Field(..., pattern=r'^\$\d{1,3}(,\d{3})*(\.\d+)?K?M?$')
     payback_days: int = Field(..., ge=1, le=365)
     npv: str = Field(..., pattern=r'^\$\d+\.\d+M$')
-    ltv: str = Field(..., pattern=r'^\d+$')
+    ltv: str = Field(..., pattern=r'^\$\d+$')
 
 class StrategicAnalysis(BaseModel):
     fit_score: int = Field(..., ge=1, le=10)
@@ -563,4 +563,5 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
