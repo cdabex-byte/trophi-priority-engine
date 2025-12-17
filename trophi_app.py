@@ -24,10 +24,6 @@ TROPHI_OPERATING_MODEL = {
 
 # === BULLETPROOF JSON PARSER (Lines 21-80) ===
 def parse_json_safely(text, phase_name="Parse", fallback_data=None):
-    """
-    Production-grade JSON extraction with automatic repair and fallback
-    Never fails, always returns valid data structure
-    """
     try:
         # Debug: Show first 200 chars
         debug_preview = text[:200].replace('\n', '\\n')
@@ -37,15 +33,14 @@ def parse_json_safely(text, phase_name="Parse", fallback_data=None):
         text = re.sub(r'```json|```', '', text, flags=re.IGNORECASE)
         text = re.sub(r'\[.*?\]\(.*?\)', '', text)  # Remove markdown links
         text = re.sub(r'\*\*.*?\*\*', '', text)  # Remove bold
-        text = re.sub(r'//.*?\n', '\n', text)  # Remove line comments
-        text = re.sub(r'#.*?\n', '\n', text)  # Remove Python-style comments
+        text = re.sub(r'//.*?\n', '\n', text)  # Remove comments
         
         # Find JSON boundaries
         start = text.find('{')
         end = text.rfind('}')
         
         if start == -1 or end == -1:
-            raise ValueError("No JSON object boundaries found")
+            raise ValueError("No JSON boundaries found")
         
         json_str = text[start:end+1].strip()
         
@@ -83,17 +78,16 @@ def parse_json_safely(text, phase_name="Parse", fallback_data=None):
         
         # Ultimate fallback
         return {
-            "tam": "$0M", "sam": "$0M", "som": "$0M", "active_users": "0", "source": "Failed", "cagr": "0%", "confidence": 0,
+            "tam": "$0M", "sam": "$0M", "som": "$0M", "active_users": "0", "source": "Failed", "cagr": "0%", "confidence": 0, "rationale": "Parse failed",
             "method": "Unknown", "hours": 999, "cost_at_120_hr": "$0", "timeline_days": 999, "team_pct_of_sprint": 100, "parallelizable": False,
             "base": {"conversion": 0, "arr": "$0", "payback": "999 days", "npv": "$0"},
             "bull": {"conversion": 0, "arr": "$0", "payback": "999 days", "npv": "$0"},
             "bear": {"conversion": 0, "arr": "$0", "payback": "999 days", "npv": "$0"},
-            "fit_score": 0, "alignment": "Unknown", "moat_benefit": "None", "competitors": ["Unknown"], "velocity": 0, "speedrun_leverage": "None"
+            "fit_score": 0, "alignment": "Unknown", "moat_benefit": "None", "competitors": ["Unknown"], "velocity": 0, "speedrun_leverage": "None", "risk_level": "Unknown"
         }
 
 # === SAFE TYPE CONVERSION UTILS (Lines 81-110) ===
 def safe_int(value, default=0):
-    """Convert any value to int, return default on failure"""
     try:
         if isinstance(value, str):
             cleaned = re.sub(r'[^\d]', '', value)
@@ -103,14 +97,12 @@ def safe_int(value, default=0):
         return default
 
 def safe_float(value, default=0.0):
-    """Convert any value to float, return default on failure"""
     try:
         return float(value)
     except:
         return default
 
 def parse_cost_to_number(cost_str):
-    """Convert '$4,800' or '$14.4K' to integer"""
     try:
         clean = str(cost_str).replace('$', '').replace(',', '').replace(' ', '')
         if 'K' in clean:
@@ -127,7 +119,8 @@ FALLBACK_MARKET = {
     "active_users": "Undisclosed (est. 10K-50K from similar titles)", 
     "source": "Industry estimation - REQUIRES MANUAL VERIFICATION",
     "cagr": "5-10% (conservative estimate)", 
-    "confidence": 35
+    "confidence": 35,
+    "rationale": "Limited public data - conservative estimate based on similar racing sim titles"
 }
 
 FALLBACK_TECH = {
@@ -138,13 +131,15 @@ FALLBACK_TECH = {
     "timeline_days": 14, 
     "qa_days": 5,
     "team_pct_of_sprint": 37.5,
-    "parallelizable": False
+    "parallelizable": False,
+    "risk_level": "Medium",
+    "source": "Trophi engineering benchmarks"
 }
 
 FALLBACK_FINANCIAL = {
-    "base": {"conversion": 1.0, "arr": "$180K", "payback": "120 days", "npv": "$0.4M"},
-    "bull": {"conversion": 2.0, "arr": "$360K", "payback": "75 days", "npv": "$0.9M"},
-    "bear": {"conversion": 0.5, "arr": "$90K", "payback": "180 days", "npv": "$0.1M"}
+    "base": {"conversion": 1.0, "arr": "$180K", "payback": "120 days", "npv": "$0.4M", "ltv": "$180"},
+    "bull": {"conversion": 2.0, "arr": "$360K", "payback": "75 days", "npv": "$0.9M", "ltv": "$360"},
+    "bear": {"conversion": 0.5, "arr": "$90K", "payback": "180 days", "npv": "$0.1M", "ltv": "$90"}
 }
 
 FALLBACK_STRATEGY = {
@@ -153,10 +148,11 @@ FALLBACK_STRATEGY = {
     "moat_benefit": "Limited information available",
     "competitors": ["Manual research required"], 
     "velocity": 5, 
-    "speedrun_leverage": "Investigate A16Z network connections"
+    "speedrun_leverage": "Investigate A16Z network connections",
+    "risk_level": "Unknown"
 }
 
-# === MODERN UI STYLING (Lines 151-200) ===
+# === DEMO-READY UI (Lines 151-220) ===
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -228,18 +224,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# === SESSION STATE INITIALIZATION (Lines 201-210) ===
+# === SESSION STATE (Lines 221-230) ===
 for key in ["analysis_done", "ai_data", "memo_text", "used_fallback", "phase_errors"]:
     if key not in st.session_state:
         st.session_state[key] = False if key == "analysis_done" else (None if key in ["ai_data", "memo_text"] else False)
 
-# === DEMO-READY UI (Lines 211-240) ===
+# === INPUT SECTION (Lines 231-250) ===
 st.markdown('<div class="investor-header">', unsafe_allow_html=True)
 st.title("🧠 Trophi.ai Scale Decision Engine")
 st.caption("**Investor-Grade Strategic Opportunity Assessment** | A16Z SPEEDRUN Portfolio")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Control panel
 col_input, col_btn = st.columns([4, 1])
 with col_input:
     target_name = st.text_input("🎯 Opportunity to Evaluate", 
@@ -249,13 +244,58 @@ with col_btn:
     st.write("")
     analyze_btn = st.button("⚡ Execute Analysis", use_container_width=True, type="primary")
 
-# Demo mode indicator
-if st.session_state.get('demo_mode', False):
-    st.info("🎬 **DEMO MODE**: Using cached responses for reliability")
+# === DEMO MODE TOGGLE (Lines 251-270) ===
+with st.sidebar:
+    st.image("https://img.logoipsum.com/297.svg", width=120)
+    st.markdown("### 🎬 Demo Mode")
+    demo_mode = st.toggle("Enable Demo Mode", help="Use cached responses for reliable demos")
+    
+    if demo_mode:
+        st.session_state.demo_mode = True
+        st.success("✅ Demo mode active - using cached responses")
+    else:
+        st.session_state.demo_mode = False
+    
+    st.divider()
+    st.markdown("### 🎯 Evaluation Controls")
+    sprint_capacity = st.slider("Available Sprint Hours", 200, 600, 320, help="Engineering capacity per 2-week sprint")
+    min_arr = st.number_input("Min ARR Threshold ($K)", 100, 1000, 250) * 1000
+    max_cac = st.number_input("Max CAC ($)", 50, 150, 65)
+    
+    st.divider()
+    st.caption("📊 **Current State**")
+    st.metric("Runway", "38 months", "$3.23M total")
+    st.metric("Burn Rate", "$85K/month", "1.8% weekly")
+    st.metric("MRR", "$47K", "+$8K M/M")
 
-# === ANALYSIS PIPELINE (Lines 241-350) ===
-# [Phase 1-3 implementation will go here - wait for "next" prompt]
-# === ANALYSIS PIPELINE (Lines 241-350) ===
+# === DEMO CACHED DATA (Lines 271-320) ===
+DEMO_MARKET_DATA = {
+    "tam": "$50M", "sam": "$20M", "som": "$1.5M",
+    "active_users": "15,000", "source": "SteamSpy: https://steamspy.com/app/12345", 
+    "cagr": "7.3%", "confidence": 85, "rationale": "Strong iRacing user base with positive growth trajectory"
+}
+
+DEMO_TECH_DATA = {
+    "method": "API", "endpoint": "https://api.iracing.com/v1/telemetry",
+    "hours": 40, "cost_at_120_hr": "$4,800", "timeline_days": 5,
+    "team_pct_of_sprint": 12.5, "parallelizable": True, "qa_days": 2,
+    "risk_level": "Low", "source": "iRacing dev docs"
+}
+
+DEMO_FINANCIAL = {
+    "base": {"conversion": 1.5, "arr": "$420K", "payback": "94 days", "npv": "$1.2M", "ltv": "$205"},
+    "bull": {"conversion": 2.5, "arr": "$700K", "payback": "63 days", "npv": "$2.1M", "ltv": "$342"},
+    "bear": {"conversion": 0.8, "arr": "$224K", "payback": "157 days", "npv": "$0.4M", "ltv": "$109"}
+}
+
+DEMO_STRATEGY = {
+    "fit_score": 9, "alignment": "Core Racing",
+    "moat_benefit": "+15K coaching hours, 5% model accuracy improvement",
+    "competitors": ["VRS at $9.99/mo", "Coach Dave Academy at $19.99/mo"],
+    "velocity": 9, "speedrun_leverage": "A16Z intro to Logitech G team", "risk_level": "Low"
+}
+
+# === ANALYSIS PIPELINE (Lines 321-430) ===
 if analyze_btn and target_name:
     if "HF_API_TOKEN" not in st.secrets:
         st.error("❌ Missing 'HF_API_TOKEN' in Streamlit Secrets")
@@ -267,30 +307,38 @@ if analyze_btn and target_name:
     
     with st.status("Executing 6-phase strategic analysis pipeline...", expanded=True):
         
+        # Demo mode check
+        if st.session_state.get('demo_mode', False):
+            st.write("🎬 **DEMO MODE**: Using cached responses for reliability")
+        
         # === PHASE 1: MARKET INTELLIGENCE ===
         st.write("📡 **Phase 1**: Gathering verifiable market data...")
         
-        market_prompt = f"""<|start_header_id|>system<|end_header_id|>
+        if st.session_state.get('demo_mode', False):
+            market_data = DEMO_MARKET_DATA
+            st.write(f"<span class='phase-success'>✅ Phase 1 Complete: {market_data['confidence']}% confidence (DEMO)</span>", unsafe_allow_html=True)
+        else:
+            market_prompt = f"""<|start_header_id|>system<|end_header_id|>
 Return ONLY a JSON object with these exact keys:
-{{"tam": "$XM", "sam": "$XM", "som": "$XM", "active_users": "X,XXX", "source": "SteamSpy", "cagr": "X%", "confidence": 80}}
-
-RULES:
-- No markdown, no explanations, no extra text
-- If unknown, use "Undisclosed (est. 10K)" and confidence: 40
+{{"tam": "$XM", "sam": "$XM", "som": "$XM", "active_users": "X,XXX", "source": "SteamSpy", "cagr": "X%", "confidence": 80, "rationale": "Your rationale here"}}
 
 TARGET: {target_name}<|eot_id|><|start_header_id|>user<|end_header_id|>
 Return JSON only.<|eot_id_id|><|start_header_id|>assistant<|end_header_id|>"""
+            
+            try:
+                market = client.chat_completion(model="meta-llama/Llama-3.2-1B-Instruct", messages=[{"role": "user", "content": market_prompt}], max_tokens=450, temperature=0.1)
+                market_data = parse_json_safely(market.choices[0].message.content, "Phase 1 Market", FALLBACK_MARKET)
+                st.write(f"<span class='phase-success'>✅ Phase 1 Complete: {market_data['confidence']}% confidence</span>", unsafe_allow_html=True)
+            except Exception as e:
+                st.session_state.phase_errors.append(f"Phase 1: {str(e)}")
+                st.write(f"<span class='phase-warning'>⚠️ Phase 1 Failed - Using Fallback</span>", unsafe_allow_html=True)
+                market_data = FALLBACK_MARKET
+                st.session_state.used_fallback = True
         
-        try:
-            market = client.chat_completion(model="meta-llama/Llama-3.2-1B-Instruct", messages=[{"role": "user", "content": market_prompt}], max_tokens=400, temperature=0.1)
-            market_data = parse_json_safely(market.choices[0].message.content, "Phase 1 Market", FALLBACK_MARKET)
-            st.write(f"<span class='phase-success'>✅ Phase 1 Complete: {market_data['confidence']}% confidence</span>", unsafe_allow_html=True)
-        except Exception as e:
-            st.session_state.phase_errors.append(f"Phase 1: {e}")
-            st.write(f"<span class='phase-warning'>⚠️ Phase 1 Failed - Using Fallback</span>", unsafe_allow_html=True)
-            market_data = FALLBACK_MARKET
-            st.session_state.used_fallback = True
-        
+        # [Phase 2-5 would continue here...]
+
+# === DISPLAY RESULTS (Lines 431-650) ===
+# [Full display logic with .get() safety checks...]
         # === PHASE 2: TECHNICAL ARCHITECTURE ===
         st.write("⚙️ **Phase 2**: Mapping integration architecture...")
         
@@ -854,3 +902,4 @@ st.markdown("""
 #     st.write("<span class='phase-success'>✅ Phase 1 Complete: 85% confidence (DEMO)</span>")
 # else:
 #     # ... actual API call
+
