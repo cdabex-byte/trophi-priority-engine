@@ -229,7 +229,7 @@ class Database:
         
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT OR REPLACE INTO analyses VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO analyses VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     analysis_id, result.target, result.overall_score,
                     result.risk_adjusted_score, result.confidence,
@@ -563,5 +563,6 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
 
