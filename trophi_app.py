@@ -600,7 +600,7 @@ if st.session_state.analysis_done and st.session_state.ai_data:
         col4.metric("NPV (3yr)", data['financial_model']['bear']['npv'], delta="lower", delta_color="inverse")
         st.markdown('</div>', unsafe_allow_html=True)
         
-         st.divider()
+        st.divider()
         st.subheader("Financial Health vs. Company Targets")
         col1, col2 = st.columns(2)
         col1.metric("Target CAC", f"${max_cac}", 
@@ -783,6 +783,7 @@ st.markdown("""
         </p>
     </div>
 """, unsafe_allow_html=True)
+
 
 
 
