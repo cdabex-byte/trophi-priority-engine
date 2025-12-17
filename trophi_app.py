@@ -597,7 +597,7 @@ if st.session_state.analysis_done and st.session_state.ai_data:
         
         # Financial health check
         st.subheader("Financial Health vs. Company Targets")
-                col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
         col1.metric("Target CAC", f"${max_cac}", 
                    delta=f"Current: ${TROPHI_OPERATING_MODEL['current_state']['metrics']['cac']}",
                    help="Customer Acquisition Cost target")
@@ -779,4 +779,5 @@ st.markdown("""
         </p>
     </div>
 """, unsafe_allow_html=True)
+
 
