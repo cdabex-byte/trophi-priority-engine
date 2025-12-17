@@ -25,7 +25,7 @@ st.divider()
 # --- INPUT SECTION ---
 col_input, col_btn = st.columns([3, 1])
 with col_input:
-    target_name = st.text_input("Target Name", placeholder="e.g. Valorant, Logitech, F1 24")
+    target_name = st.text_input("Target Name", placeholder="e.g. Call of Duty, Logitech, F1 24")
 with col_btn:
     st.write("") # Spacer
     analyze_btn = st.button("Run Analysis", type="primary")
@@ -46,8 +46,8 @@ if analyze_btn and target_name:
 
     with st.spinner(f"🔍 Deconstructing {target_name}..."):
         try:
-            # USE GEMINI 1.5 FLASH (Standard, Fast, Free)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # SWITCHING TO GEMINI-PRO FOR MAX COMPATIBILITY
+            model = genai.GenerativeModel('gemini-pro')
             
             # --- PROMPT 1: THE DATA ESTIMATOR ---
             data_prompt = f"""
@@ -60,9 +60,10 @@ if analyze_btn and target_name:
             - We love Hardware partnerships.
             
             TASK:
-            Return valid JSON with these estimates (1-5 Scale):
+            Return valid JSON with these estimates (1-5 Scale). 
+            Do NOT return Markdown. Return ONLY the raw JSON string.
             
-            OUTPUT JSON FORMAT ONLY:
+            OUTPUT JSON FORMAT:
             {{
                 "type": "Game Integration" or "Hardware Partnership",
                 "tam_score": (Integer 1-5),
@@ -75,13 +76,17 @@ if analyze_btn and target_name:
             
             response = model.generate_content(data_prompt)
             
-            # Clean JSON (Strip markdown formatting if AI adds it)
-            cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
-            ai_data = json.loads(cleaned_text)
+            # Robust JSON Cleaning
+            text_data = response.text
+            if "```json" in text_data:
+                text_data = text_data.split("```json")[1].split("```")[0]
+            elif "```" in text_data:
+                text_data = text_data.replace("```", "")
+            
+            ai_data = json.loads(text_data.strip())
             
             # Calculate Trophi Score
             raw_score = (ai_data['tam_score'] * 1.5) + (ai_data['rev_score'] * 2.0) + (ai_data['strat_fit'] * 1.5) - (ai_data['tech_lift'] * 2.5)
-            # Normalize logic
             ai_data['final_score'] = round(max(0, min(100, (raw_score + 10) * 4)), 1)
             
             st.session_state.ai_data = ai_data
@@ -89,7 +94,7 @@ if analyze_btn and target_name:
             
         except Exception as e:
             st.error(f"Analysis Failed: {e}")
-            st.warning("Tip: Try clicking 'Run Analysis' again, or check your API Key.")
+            st.warning("Tip: The AI might have been overloaded. Click 'Run Analysis' again.")
 
 # --- DISPLAY RESULTS ---
 if st.session_state.analysis_done and st.session_state.ai_data:
@@ -116,7 +121,8 @@ if st.session_state.analysis_done and st.session_state.ai_data:
     
     if st.button("Draft Executive Brief"):
         with st.spinner("Drafting memo..."):
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # Use Gemini Pro for text generation too
+            model = genai.GenerativeModel('gemini-pro')
             memo_prompt = f"""
             ROLE: Head of Strategy at Trophi AI.
             TASK: Write a decision memo for "{target_name}".
