@@ -1,7 +1,3 @@
-Requirments.txt
-
 streamlit
-
 pandas
-
 google-generativeai
