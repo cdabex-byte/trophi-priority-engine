@@ -243,7 +243,7 @@ class Database:
             await db.commit()
         logger.info("Analysis saved", id=analysis_id)
     
-    return analysis_id
+        return analysis_id
     
     async def get_history(self, limit: int = 10) -> List[dict]:
         async with aiosqlite.connect(self.db_path) as db:
@@ -566,6 +566,7 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
 
 
