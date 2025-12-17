@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import time
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -19,7 +20,7 @@ st.markdown("""
 
 # --- HEADER ---
 st.title("🧠 Trophi.ai Strategy Agent")
-st.caption("Powered by Gemini 3.0 Pro (Preview)")
+st.caption("Powered by Gemini 2.0 Flash (High Speed)")
 st.divider()
 
 # --- INPUT SECTION ---
@@ -45,11 +46,11 @@ if analyze_btn and target_name:
         st.error("❌ Missing 'GEMINI_API_KEY' in Streamlit Secrets.")
         st.stop()
 
-    with st.spinner(f"🔍 Consulting Gemini 3.0 regarding {target_name}..."):
+    with st.spinner(f"🔍 Analyzing {target_name}..."):
         try:
-            # 2. INITIALIZE SPECIFIC MODEL
-            # We use the exact ID you provided from the log
-            model = genai.GenerativeModel('gemini-3-pro-preview')
+            # 2. USE GEMINI 2.0 FLASH (Best for Free Tier Quotas)
+            # Based on your logs, this model is available and has higher limits
+            model = genai.GenerativeModel('gemini-2.0-flash')
             
             # 3. DEFINE PROMPT
             data_prompt = f"""
@@ -97,12 +98,11 @@ if analyze_btn and target_name:
             st.session_state.analysis_done = True
             
         except Exception as e:
-            st.error(f"❌ Analysis Error: {e}")
-            st.write("Raw Response (for debugging):")
-            try:
-                st.write(response.text)
-            except:
-                st.write("No response received.")
+            # Handle Quota Errors Gracefully
+            if "429" in str(e):
+                st.warning("⚠️ High Traffic: API Quota Exceeded. Please wait 60 seconds and try again.")
+            else:
+                st.error(f"❌ Analysis Error: {e}")
 
 # --- DISPLAY RESULTS ---
 if st.session_state.analysis_done and st.session_state.ai_data:
@@ -130,7 +130,7 @@ if st.session_state.analysis_done and st.session_state.ai_data:
     if st.button("Draft Executive Brief"):
         with st.spinner("Drafting memo..."):
             try:
-                model = genai.GenerativeModel('gemini-3-pro-preview')
+                model = genai.GenerativeModel('gemini-2.0-flash')
                 memo_prompt = f"""
                 ROLE: Head of Strategy at Trophi AI.
                 TASK: Write a decision memo for "{target_name}".
