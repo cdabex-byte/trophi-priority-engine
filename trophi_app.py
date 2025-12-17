@@ -229,7 +229,7 @@ class Database:
     
         async with aiosqlite.connect(self.db_path) as db:
         # EXPLICITLY list 8 columns (excluding created_at which has DEFAULT)
-        await db.execute(
+            await db.execute(
             """INSERT OR REPLACE INTO analyses 
             (id, target, overall_score, risk_adjusted_score, confidence, analysis_date, data_sources, raw_data) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -240,7 +240,7 @@ class Database:
                 result.json()
             )
         )
-        await db.commit()
+            await db.commit()
         logger.info("Analysis saved", id=analysis_id)
     
     return analysis_id
@@ -566,6 +566,7 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
 
 
