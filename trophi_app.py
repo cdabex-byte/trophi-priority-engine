@@ -1,7 +1,7 @@
 import streamlit as st
 import json
 import time
-from huggingface_hub import InferenceClient  # NEW IMPORT
+from huggingface_hub import InferenceClient
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -15,12 +15,13 @@ st.markdown("""
     <style>
     .big-font { font-size:20px !important; }
     .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
+    .error-box { background-color: #ffebee; padding: 10px; border-radius: 5px; border-left: 5px solid #f44336; }
     </style>
 """, unsafe_allow_html=True)
 
 # --- HEADER ---
 st.title("🧠 Trophi.ai Strategy Agent")
-st.caption("Powered by Hugging Face Inference API (Free Tier)")
+st.caption("Powered by Mistral-7B-Instruct-v0.3 (Hugging Face)")
 st.divider()
 
 # --- INPUT SECTION ---
@@ -48,16 +49,12 @@ if analyze_btn and target_name:
 
     with st.spinner(f"🔍 Analyzing {target_name}..."):
         try:
-            # 2. CHOOSE MODEL - Optimized for JSON output
-            # Recommended free models (in order of preference):
-            # - "microsoft/Phi-3-mini-4k-instruct" (fast, excellent JSON)
-            # - "meta-llama/Llama-3.2-1B-Instruct" (smallest, fastest)
-            # - "mistralai/Mistral-7B-Instruct-v0.3" (more capable, slightly slower)
+            # 2. MODEL CONFIGURATION - Mistral-7B-Instruct-v0.3
+            MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
             
-            model_name = "microsoft/Phi-3-mini-4k-instruct"  # <-- You can change this
-            
-            # 3. DEFINE PROMPT - Enhanced for better JSON compliance
-            data_prompt = f"""You are the Head of Strategy for Trophi AI. Analyze this target: "{target_name}"
+            # 3. PROMPT FORMATTING - Mistral uses [INST] tags for instruction following
+            data_prompt = f"""[INST] You are the Head of Strategy for Trophi AI.
+Analyze this target: "{target_name}"
 
 CONTEXT:
 - We prefer Games with open APIs (UDP Telemetry) = Low Tech Lift (1/5).
@@ -67,43 +64,47 @@ CONTEXT:
 TASK: Return ONLY a valid JSON object with these exact keys:
 {{
     "type": "Game Integration" or "Hardware Partnership",
-    "tam_score": (Integer 1-5, 5 is High),
-    "tech_lift": (Integer 1-5, 5 is Hard/Risky),
-    "rev_score": (Integer 1-5, 5 is High $$$),
-    "strat_fit": (Integer 1-5, 5 is Perfect),
-    "technical_reasoning": "One short sentence explaining the Tech Lift score"
+    "tam_score": Integer 1-5,
+    "tech_lift": Integer 1-5,
+    "rev_score": Integer 1-5,
+    "strat_fit": Integer 1-5,
+    "technical_reasoning": "One short sentence"
 }}
 
-RULES:
-- Return ONLY raw JSON, no markdown, no explanations
-- Ensure all keys are present and values are valid integers/strings
-- Do not include any additional text before or after the JSON
-"""
+RULES: Return raw JSON only. No markdown, no extra text, no explanations. [/INST]"""
             
-            # 4. CALL API - Using chat_completion for better instruction following
+            # 4. CALL API - Using chat_completion for Mistral
             response = client.chat_completion(
-                model=model_name,
+                model=MODEL_NAME,
                 messages=[{"role": "user", "content": data_prompt}],
-                max_tokens=500,
-                temperature=0.3,  # Low temperature for consistent output
+                max_tokens=300,
+                temperature=0.3,  # Low for consistent JSON output
+                top_p=0.9,
             )
             
             # 5. PARSE RESPONSE
             text_data = response.choices[0].message.content
             
-            # Clean up any potential markdown wrapping
-            if "```json" in text_data:
-                text_data = text_data.split("```json")[1].split("```")[0]
-            elif "```" in text_data:
-                text_data = text_data.replace("```", "")
-            
-            # Strip any leading/trailing whitespace
+            # Mistral sometimes wraps JSON in markdown - clean it aggressively
             text_data = text_data.strip()
+            for pattern in ["```json", "```", "[/INST]"]:
+                if pattern in text_data:
+                    text_data = text_data.replace(pattern, "").strip()
             
-            # Parse JSON
+            # Remove any trailing text after JSON object
+            if "}" in text_data:
+                text_data = text_data[:text_data.rfind("}") + 1]
+            
             ai_data = json.loads(text_data)
             
-            # 6. CALCULATE SCORE (same logic as before)
+            # 6. VALIDATE & CALCULATE
+            required_keys = ["type", "tam_score", "tech_lift", "rev_score", "strat_fit", "technical_reasoning"]
+            if not all(key in ai_data for key in required_keys):
+                st.error("❌ Incomplete response from model")
+                st.json(ai_data)
+                st.stop()
+            
+            # Calculate final score
             raw_score = (ai_data['tam_score'] * 1.5) + (ai_data['rev_score'] * 2.0) + (ai_data['strat_fit'] * 1.5) - (ai_data['tech_lift'] * 2.5)
             ai_data['final_score'] = round(max(0, min(100, (raw_score + 10) * 4)), 1)
             
@@ -112,19 +113,27 @@ RULES:
             st.session_state.analysis_done = True
             
         except json.JSONDecodeError as e:
-            st.error("❌ Invalid JSON response from model. Try again or switch models.")
-            st.info(f"Raw response: {text_data[:200]}...")
+            st.error("❌ Could not parse JSON response from Mistral")
+            with st.expander("Debug: Raw Response"):
+                st.code(text_data[:500])
+            st.info("💡 Tip: Try again or switch to a smaller model like 'meta-llama/Llama-3.2-1B-Instruct'")
+            
         except Exception as e:
-            # Handle Hugging Face specific errors
-            error_str = str(e)
-            if "429" in error_str or "rate limit" in error_str.lower():
-                st.warning("⚠️ Hugging Face Rate Limit Reached. Wait 60s or try a smaller model.")
+            error_str = str(e).lower()
+            if "model_not_supported" in error_str:
+                st.error(f"❌ Model '{MODEL_NAME}' not available on Inference API")
+                st.info("💡 Check model availability at https://huggingface.co/{MODEL_NAME}")
+            elif "429" in error_str or "rate limit" in error_str:
+                st.warning("⚠️ Hugging Face rate limit reached")
+                st.info("💡 Wait 60 seconds or upgrade to a paid Inference Endpoint")
             elif "401" in error_str:
-                st.error("❌ Invalid HF_API_TOKEN. Check your Streamlit Secrets.")
-            elif "Model not found" in error_str:
-                st.error(f"❌ Model '{model_name}' not available. Try another model.")
+                st.error("❌ Invalid HF_API_TOKEN")
+                st.info("💡 Check your token at https://huggingface.co/settings/tokens")
             else:
                 st.error(f"❌ Analysis Error: {e}")
+                st.info("💡 Try running again or check the raw response below")
+                with st.expander("See full error"):
+                    st.code(str(e))
 
 # --- DISPLAY RESULTS ---
 if st.session_state.analysis_done and st.session_state.ai_data:
@@ -133,14 +142,18 @@ if st.session_state.analysis_done and st.session_state.ai_data:
     st.subheader(f"Analysis: {target_name}")
     st.caption(f"Category: {data['type']}")
     
+    # Display metrics
     m1, m2, m3 = st.columns(3)
-    m1.metric("Trophi Score", data['final_score'], delta="Pass" if data['final_score'] > 60 else "Risk")
-    m2.metric("Tech Lift (Risk)", f"{data['tech_lift']}/5", delta_color="inverse", help="1=Easy API, 5=Computer Vision")
+    m1.metric("Trophi Score", data['final_score'], 
+              delta="Pass" if data['final_score'] > 60 else "Risk")
+    m2.metric("Tech Lift (Risk)", f"{data['tech_lift']}/5", 
+              delta_color="inverse", help="1=Easy API, 5=Computer Vision")
     m3.metric("Strategic Fit", f"{data['strat_fit']}/5")
     
+    # Technical insight
     st.info(f"💡 **Technical Insight:** {data['technical_reasoning']}")
     
-    # Sliders for visual context
+    # Visual sliders
     with st.expander("See Underlying Metrics"):
         st.slider("TAM / Reach", 1, 5, int(data['tam_score']), disabled=True)
         st.slider("Revenue Potential", 1, 5, int(data['rev_score']), disabled=True)
@@ -152,26 +165,33 @@ if st.session_state.analysis_done and st.session_state.ai_data:
     if st.button("Draft Executive Brief"):
         with st.spinner("Drafting memo..."):
             try:
-                memo_prompt = f"""ROLE: Head of Strategy at Trophi AI.
+                # Memo prompt for Mistral
+                memo_prompt = f"""[INST] ROLE: Head of Strategy at Trophi AI.
 TASK: Write a decision memo for "{target_name}".
-DATA: 
-- Score: {data['final_score']}/100
-- Tech Lift: {data['tech_lift']}/5 ({data['technical_reasoning']})
-- Verdict: {'GREENLIGHT' if data['final_score'] > 75 else 'EVALUATE' if data['final_score'] > 50 else 'KILL'}
+DATA: Score: {data['final_score']}/100, Tech Lift: {data['tech_lift']}/5 ({data['technical_reasoning']})
+Verdict: {'GREENLIGHT' if data['final_score'] > 75 else 'EVALUATE' if data['final_score'] > 50 else 'KILL'}
 
 FORMAT:
 **VERDICT:** [VERDICT]
-**THE BUILD:** Explain the engineering reality (mention APIs vs Computer Vision).
-**THE BUSINESS:** Explain the ROI.
+**THE BUILD:** Explain engineering reality (APIs vs Computer Vision).
+**THE BUSINESS:** Explain ROI.
 **RECOMMENDATION:** One clear next step.
-"""
+
+Keep it concise and professional. [/INST]"""
                 
                 memo_response = client.chat_completion(
-                    model=model_name,
+                    model=MODEL_NAME,
                     messages=[{"role": "user", "content": memo_prompt}],
-                    max_tokens=800,
+                    max_tokens=600,
                     temperature=0.5,
                 )
+                
                 st.markdown(memo_response.choices[0].message.content)
+                
             except Exception as e:
-                st.error(f"Memo Generation Error: {e}")
+                st.error(f"❌ Memo Generation Error: {e}")
+                st.info("💡 Try running the analysis again first")
+
+# --- FOOTER ---
+st.divider()
+st.caption("App using Hugging Face Inference API | Model: mistralai/Mistral-7B-Instruct-v0.3")
