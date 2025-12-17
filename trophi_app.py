@@ -11,6 +11,21 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, validator
 from tenacity import retry, stop_after_attempt, wait_fixed
 import logging
+import structlog
+
+# Configure logging FIRST
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
+        structlog.processors.JSONRenderer()
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+)
+
+# Define logger BEFORE any class that uses it
+logger = structlog.get_logger()
 
 # ============================================================================
 # 🎯 CONFIGURATION
@@ -189,7 +204,8 @@ class Database:
     async def init_db(self):
         import os
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
+        # Use explicit global logger reference
+        global logger  # Add this line!
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS analyses (
@@ -547,3 +563,4 @@ def main():
 if __name__ == "__main__":
     main()
     
+
