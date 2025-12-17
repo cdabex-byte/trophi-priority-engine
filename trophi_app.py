@@ -3,19 +3,10 @@ import google.generativeai as genai
 import json
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="Trophi.ai Strategy Agent",
-    page_icon="🧠",
-    layout="centered"
-)
+st.set_page_config(page_title="Trophi.ai Strategy Agent", page_icon="🧠", layout="centered")
 
 # --- STYLING ---
-st.markdown("""
-    <style>
-    .big-font { font-size:20px !important; }
-    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("""<style>.stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }</style>""", unsafe_allow_html=True)
 
 # --- HEADER ---
 st.title("🧠 Trophi.ai Strategy Agent")
@@ -27,14 +18,26 @@ col_input, col_btn = st.columns([3, 1])
 with col_input:
     target_name = st.text_input("Target Name", placeholder="e.g. Call of Duty, Logitech, F1 24")
 with col_btn:
-    st.write("") # Spacer
+    st.write("") 
     analyze_btn = st.button("Run Analysis", type="primary")
 
-# --- INITIALIZE SESSION STATE ---
-if "analysis_done" not in st.session_state:
-    st.session_state.analysis_done = False
-if "ai_data" not in st.session_state:
-    st.session_state.ai_data = None
+# --- SESSION STATE ---
+if "analysis_done" not in st.session_state: st.session_state.analysis_done = False
+if "ai_data" not in st.session_state: st.session_state.ai_data = None
+
+# --- HELPER: GET WORKING MODEL ---
+def get_working_model():
+    """Finds a model that actually exists on this server."""
+    try:
+        # Try the modern flash model first
+        return genai.GenerativeModel('gemini-1.5-flash')
+    except:
+        try:
+            # Fallback to Pro
+            return genai.GenerativeModel('gemini-pro')
+        except:
+            # Fallback to 1.0
+            return genai.GenerativeModel('gemini-1.0-pro')
 
 # --- AI LOGIC ---
 if analyze_btn and target_name:
@@ -46,10 +49,10 @@ if analyze_btn and target_name:
 
     with st.spinner(f"🔍 Deconstructing {target_name}..."):
         try:
-            # SWITCHING TO GEMINI-PRO FOR MAX COMPATIBILITY
-            model = genai.GenerativeModel('gemini-pro')
+            # 1. FIND A MODEL THAT WORKS
+            model = get_working_model()
             
-            # --- PROMPT 1: THE DATA ESTIMATOR ---
+            # 2. RUN ANALYSIS
             data_prompt = f"""
             Act as the CTO and Head of Strategy for Trophi AI.
             Analyze this target: "{target_name}"
@@ -60,10 +63,8 @@ if analyze_btn and target_name:
             - We love Hardware partnerships.
             
             TASK:
-            Return valid JSON with these estimates (1-5 Scale). 
-            Do NOT return Markdown. Return ONLY the raw JSON string.
-            
-            OUTPUT JSON FORMAT:
+            Return valid JSON with these estimates (1-5 Scale).
+            OUTPUT JSON FORMAT ONLY. NO MARKDOWN.
             {{
                 "type": "Game Integration" or "Hardware Partnership",
                 "tam_score": (Integer 1-5),
@@ -76,7 +77,7 @@ if analyze_btn and target_name:
             
             response = model.generate_content(data_prompt)
             
-            # Robust JSON Cleaning
+            # CLEAN JSON
             text_data = response.text
             if "```json" in text_data:
                 text_data = text_data.split("```json")[1].split("```")[0]
@@ -85,7 +86,7 @@ if analyze_btn and target_name:
             
             ai_data = json.loads(text_data.strip())
             
-            # Calculate Trophi Score
+            # SCORING MATH
             raw_score = (ai_data['tam_score'] * 1.5) + (ai_data['rev_score'] * 2.0) + (ai_data['strat_fit'] * 1.5) - (ai_data['tech_lift'] * 2.5)
             ai_data['final_score'] = round(max(0, min(100, (raw_score + 10) * 4)), 1)
             
@@ -94,7 +95,14 @@ if analyze_btn and target_name:
             
         except Exception as e:
             st.error(f"Analysis Failed: {e}")
-            st.warning("Tip: The AI might have been overloaded. Click 'Run Analysis' again.")
+            # DIAGNOSTIC INFO IF IT FAILS
+            try:
+                st.write("Available Models on this Server:")
+                for m in genai.list_models():
+                    if 'generateContent' in m.supported_generation_methods:
+                        st.code(m.name)
+            except:
+                st.write("Could not list models. Check API Key.")
 
 # --- DISPLAY RESULTS ---
 if st.session_state.analysis_done and st.session_state.ai_data:
@@ -105,37 +113,24 @@ if st.session_state.analysis_done and st.session_state.ai_data:
     
     m1, m2, m3 = st.columns(3)
     m1.metric("Trophi Score", data['final_score'], delta="Pass" if data['final_score'] > 60 else "Risk")
-    m2.metric("Tech Lift (Risk)", f"{data['tech_lift']}/5", delta_color="inverse", help="1=Easy API, 5=Computer Vision")
+    m2.metric("Tech Lift (Risk)", f"{data['tech_lift']}/5", delta_color="inverse")
     m3.metric("Strategic Fit", f"{data['strat_fit']}/5")
     
     st.info(f"💡 **Technical Insight:** {data['technical_reasoning']}")
     
-    with st.expander("See Underlying Metrics"):
-        st.slider("TAM / Reach", 1, 5, int(data['tam_score']), disabled=True)
-        st.slider("Revenue Potential", 1, 5, int(data['rev_score']), disabled=True)
-        st.slider("Strategic Fit", 1, 5, int(data['strat_fit']), disabled=True)
-        st.slider("Tech Lift (Cost)", 1, 5, int(data['tech_lift']), disabled=True)
-
     st.divider()
-    st.subheader("📝 Strategic Decision Memo")
     
     if st.button("Draft Executive Brief"):
         with st.spinner("Drafting memo..."):
-            # Use Gemini Pro for text generation too
-            model = genai.GenerativeModel('gemini-pro')
+            model = get_working_model()
             memo_prompt = f"""
             ROLE: Head of Strategy at Trophi AI.
             TASK: Write a decision memo for "{target_name}".
-            DATA: 
-            - Score: {data['final_score']}/100
-            - Tech Lift: {data['tech_lift']}/5 ({data['technical_reasoning']})
-            - Verdict: {'GREENLIGHT' if data['final_score'] > 75 else 'EVALUATE' if data['final_score'] > 50 else 'KILL'}
-            
+            DATA: Score: {data['final_score']}/100, Tech Lift: {data['tech_lift']}/5.
             FORMAT:
-            **VERDICT:** [VERDICT]
-            **THE BUILD:** Explain the engineering reality (mention APIs vs Computer Vision).
-            **THE BUSINESS:** Explain the ROI.
-            **RECOMMENDATION:** One clear next step.
+            **VERDICT:** [GREENLIGHT/KILL]
+            **THE BUILD:** Engineering reality.
+            **RECOMMENDATION:** Next step.
             """
             memo_res = model.generate_content(memo_prompt)
             st.markdown(memo_res.text)
