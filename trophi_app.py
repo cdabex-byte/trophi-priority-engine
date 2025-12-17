@@ -497,7 +497,7 @@ def render_dev_impact(result: OpportunityResult):
         st.metric(label, value)
 
 def render_download_section(result: OpportunityResult):
-    st.download_button("📥 Export JSON", result.json(indent=2), 
+    st.download_button("📥 Export JSON", result.json(), 
                       f"{result.target.replace(' ', '_')}.json", "application/json")
 
 # ============================================================================
@@ -566,6 +566,7 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
 
 
