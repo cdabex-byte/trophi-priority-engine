@@ -1,18 +1,58 @@
+This is a massive upgrade. Moving from "hardcoded text" to Real-Time Generative AI turns this from a "mockup" into a functional MVP.
 
+We will use Google's Gemini Flash model because it is fast, free (within limits), and excellent for reasoning.
 
+Here is the 4-step process to make your app live with real AI.
+
+Step 1: Get Your Free Gemini API Key
+
+Go to Google AI Studio.
+
+Click "Create API Key".
+
+Copy the key string (it starts with AIza...).
+
+Do not share this key or paste it into your public code.
+
+Step 2: Update requirements.txt
+
+You need to tell the server to install Google's AI library.
+
+Go to your GitHub repository.
+
+Edit requirements.txt.
+
+Add google-generativeai to the list. It should look like this:
+
+code
+Text
+download
+content_copy
+expand_less
+streamlit
+pandas
+google-generativeai
+Step 3: Update trophi_app.py
+
+We are going to inject a prompt that tells Gemini to act like a Strategy Operations Associate.
+
+Copy this exact code to your GitHub file:
+
+code
+Python
+download
+content_copy
+expand_less
 import streamlit as st
 import pandas as pd
+import google.generativeai as genai
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="Trophi.ai Priority Engine", layout="centered")
 
 # --- HEADER ---
 st.title("🏎️ Trophi.ai Priority Engine")
-st.markdown("""
-**Prototype v0.1** | Built by David Battcock
-*Objective: Quantify 'Opportunity Cost' for Inbound Partnerships & Expansions.*
-""")
-st.divider()
+st.caption("Powered by Gemini 1.5 Flash")
 
 # --- SIDEBAR INPUTS ---
 st.sidebar.header("Opportunity Details")
@@ -27,11 +67,8 @@ rev_potential = st.sidebar.slider("Immediate ARR Potential (1-5)", 1, 5, 2)
 strat_fit = st.sidebar.slider("Strategic Moat Alignment (1-5)", 1, 5, 5)
 
 # --- THE ALGORITHM ---
-# This is the "Operator Logic" - The math behind the decision
 def calculate_score(tam, lift, rev, strat):
-    # Weighted Logic: Strategic Fit and Engineering Lift are heavily weighted
     score = (tam * 1.5) + (rev * 2.0) + (strat * 1.5) - (lift * 2.5)
-    # Normalize to 0-100 scale roughly
     normalized_score = max(0, min(100, (score + 10) * 4)) 
     return round(normalized_score, 1)
 
@@ -44,37 +81,88 @@ with col1:
     st.subheader(f"Analysis: {opp_name}")
     if final_score >= 75:
         st.success(f"✅ **GREENLIGHT** (Score: {final_score})")
-        st.write("Recommendation: Prioritize immediately. High ROI relative to engineering cost.")
     elif final_score >= 50:
         st.warning(f"⚠️ **EVALUATE** (Score: {final_score})")
-        st.write("Recommendation: Move to Backlog. Requires scoping or more resources.")
     else:
         st.error(f"🛑 **KILL / DEFER** (Score: {final_score})")
-        st.write("Recommendation: Opportunity Cost too high. Distraction risk.")
 
 with col2:
     st.metric(label="Trophi Score", value=final_score)
 
-# --- AI GENERATION PROTOTYPE ---
+# --- GEMINI AI INTEGRATION ---
 st.divider()
 st.subheader("🤖 AI Decision Memo Generator")
-st.caption("In the full version, this connects to OpenAI API to draft the memo automatically.")
+
+# Check for API Key in Secrets
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("Missing Gemini API Key. Please add it to Streamlit Secrets.")
 
 if st.button("Generate Memo Draft"):
-    st.text_area("Draft Output", height=200, value=f"""
-TO: Executive Team
-RE: Strategic Assessment of {opp_name}
+    if "GEMINI_API_KEY" not in st.secrets:
+        st.stop()
+    
+    with st.spinner("Consulting the Strategy Engine..."):
+        # The Prompt Strategy
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        You are the Head of Strategy & Operations at Trophi AI (a Series A gaming startup).
+        Write a concise, bulleted 'Decision Memo' for the CEO regarding the opportunity: "{opp_name}".
+        
+        DATA CONTEXT:
+        - Opportunity Type: {opp_type}
+        - Our Internal Score: {final_score}/100
+        - Strategic Fit: {strat_fit}/5
+        - Engineering Lift (Risk): {tech_lift}/5
+        - Revenue Potential: {rev_potential}/5
+        
+        INSTRUCTIONS:
+        1. Start with a strict recommendation: "GREENLIGHT", "EVALUATE", or "DEFER".
+        2. Explain the "Why" using the data provided. Be ruthless about Opportunity Cost.
+        3. If Engineering Lift is High (4 or 5), warn about resource drain.
+        4. If Strategic Fit is Low, recommend killing the project.
+        5. Tone: Professional, direct, no fluff. Use "We" statements.
+        """
+        
+        try:
+            response = model.generate_content(prompt)
+            st.markdown(response.text)
+        except Exception as e:
+            st.error(f"AI Error: {e}")
+Step 4: Connect the Secret Key (Crucial Step)
 
-EXECUTIVE SUMMARY:
-This opportunity scored a {final_score}/100 on the Priority Engine. 
+Since your code is public on GitHub, you cannot put the key in the file. You must use Streamlit's Secrets Manager.
 
-KEY DRIVERS:
-- Technical Risk is rated {tech_lift}/5.
-- Strategic Alignment is rated {strat_fit}/5.
+Go to your app dashboard at share.streamlit.io.
 
-RECOMMENDATION:
-Based on the high engineering lift required vs. immediate revenue, the system recommends we DEFER this project to Q2 to protect the core roadmap.
+Click the three dots (⋮) next to your app → Settings.
 
-Generated by Trophi Ops Bot
-    """)
+Click on Secrets on the left menu.
 
+Paste the following into the text box (replace YOUR_ACTUAL_KEY with the key you got in Step 1):
+
+code
+Toml
+download
+content_copy
+expand_less
+GEMINI_API_KEY = "AIzaSyD......(your actual key here)"
+
+Click Save.
+
+Step 5: Test It
+
+Go to your live app link. Refresh the page.
+
+Enter "Counter-Strike 2".
+
+Set "Engineering Lift" to 5 (Hard).
+
+Click Generate Memo Draft.
+
+What will happen:
+Instead of generic text, Gemini will actually "think." It will see the high Engineering risk and write a custom memo warning you that CS2 is too expensive to build right now.
+
+Send that link. It proves you know Python, APIs, and Strategy.
