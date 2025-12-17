@@ -615,6 +615,36 @@ if st.session_state.analysis_done and st.session_state.ai_data:
             st.error(f"❌ **PAYBACK ALERT**: {payback_days} days exceeds 90-day target")
         else:
             st.success(f"✅ **PAYBACK HEALTHY**: {payback_days} days meets <90 day target")
+
+        with tab_dev:
+        st.subheader("Engineering Capacity Impact Analysis")
+        
+        # Resource requirements
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Engineering Hours", f"{data['dev_impact']['hours_required']}h",
+                     help="Full lifecycle hours including QA")
+            st.metric("% of Sprint Capacity", f"{data['dev_impact']['sprint_capacity_pct']}%",
+                     help=f"Of {sprint_capacity}h available per sprint")
+            st.metric("Fully-Loaded Cost", data['dev_impact']['cost_at_120_hr'],
+                     help="$120/hr fully-loaded engineering cost")
+        with col2:
+            st.metric("Timeline Impact", f"{data['technical_feasibility']['timeline_days']} days",
+                     help="Business days to production")
+            st.metric("Runway Impact", data['dev_impact']['runway_impact'],
+                     help="As % of monthly $85K burn")
+            st.metric("Parallelizable", "✅ Yes" if data['dev_impact']['parallelizable'] else "❌ No",
+                     help="Can run with other integrations?")
+        
+        # Progress bar for capacity
+        st.progress(data['dev_impact']['sprint_capacity_pct']/100)
+        
+        if not data['dev_impact']['parallelizable']:
+            st.error("❌ **CAPACITY BLOCKER**: This will BLOCK all other integrations for the duration")
+            contractor_cost = data['dev_impact']['hours_required'] * 150 / 1000
+            st.warning(f"**De-risking Option**: Hire contractor at $150/hr = **${contractor_cost:.1f}K** extra cost but preserves team velocity")
+        else:
+            st.success("✅ **CAPACITY EFFICIENT**: Can run in parallel with 1 other major integration")
     
     with tab_strat:
         st.subheader("Strategic Positioning & Competitive Moat")
@@ -674,44 +704,43 @@ You are the VP of Strategy at Trophi.ai presenting to the board including A16Z p
 **EXECUTIVE VERDICT:** {'🟢 GREENLIGHT - EXECUTE IMMEDIATELY' if data['overall_score'] >= 75 else '🟡 CAUTIOUS - PROCEED WITH MONITORING' if data['overall_score'] >= 60 else '🔴 KILL - REALLOCATE RESOURCES'}
 
 **1. MARKET OPPORTUNITY (150 words):**
-- TAM/SAM/SOM: {data['market_attractiveness']['tam']}/{data['market_attractiveness']['sam']}/{data['market_attractiveness']['som']}
-- Active users: {data['market_attractiveness']['active_users']} growing at {data['market_attractiveness']['cagr']}
-- Confidence: {data['confidence']}% from {data['market_attractiveness']['source']}
-- Why this is attractive for Trophi's racing core focus
+- TAM/SAM/SOM: {data['market_attractiveness'].get('tam', '$0M')}/{data['market_attractiveness'].get('sam', '$0M')}/{data['market_attractiveness'].get('som', '$0M')}
+- Active users: {data['market_attractiveness'].get('active_users', 'Unknown')} growing at {data['market_attractiveness'].get('cagr', '0%')}
+- Confidence: {data['confidence']}% from {data['market_attractiveness'].get('source', 'Unknown')}
+- Rationale: {data['market_attractiveness'].get('rationale', 'No rationale provided')}
 
 **2. TECHNICAL INVESTMENT (150 words):**
-- {data['technical_feasibility']['hours']}h engineering = {data['technical_feasibility']['team_pct']}% of Q1 capacity
-- Method: {data['technical_feasibility']['method']} with {data['technical_feasibility']['timeline_days']} day timeline
-- Risk level: {data['technical_feasibility'].get('risk_level', 'Medium')}
-- Cost: {data['technical_feasibility']['cost']}
-- Parallelizable: {'Yes - preserves roadmap' if data['dev_impact']['parallelizable'] else 'No - requires prioritization'}
+- {data['dev_impact'].get('hours_required', 0)}h engineering = {data['technical_feasibility'].get('team_pct', 0)}% of Q1 capacity
+- Method: {data['technical_feasibility'].get('method', 'Unknown')} with {data['technical_feasibility'].get('timeline_days', 999)} day timeline
+- Risk level: {data['technical_feasibility'].get('risk_level', 'Unknown')}
+- Cost: {data['dev_impact'].get('cost_at_120_hr', '$0')}
+- Parallelizable: {'Yes - preserves roadmap' if data['dev_impact'].get('parallelizable', False) else 'No - requires prioritization'}
 
 **3. FINANCIAL MODEL (150 words):**
-- Base case: {data['financial_model']['base']['arr']} ARR at {data['financial_model']['base']['conversion']}% conversion
-- Payback: {data['financial_model']['base']['payback']} (target: <90 days)
-- NPV: {data['financial_model']['base']['npv']} over 3 years
-- Bull/Bear cases show {data['financial_model']['bull']['arr']} upside / {data['financial_model']['bear']['arr']} downside
-- Compare to Trophi targets: $205 LTV, $52 CAC
+- Base case: {data['financial_model']['base'].get('arr', '$0')} ARR at {data['financial_model']['base'].get('conversion', 0)}% conversion
+- Payback: {data['financial_model']['base'].get('payback', '999 days')} (target: <90 days)
+- NPV: {data['financial_model']['base'].get('npv', '$0')} over 3 years
+- Bull/Bear cases show {data['financial_model']['bull'].get('arr', '$0')} upside / {data['financial_model']['bear'].get('arr', '$0')} downside
+- LTV/CAC: {data['revenue_potential'].get('ltv', 'TBD')} vs ${TROPHI_OPERATING_MODEL['current_state']['metrics'].get('cac', '52')} target
 
 **4. STRATEGIC FIT (100 words):**
-- {data['strategic_fit']['alignment']} alignment with {data['strategic_fit']['score']}/10 fit score
-- Velocity: {data['strategic_fit']['velocity']}/10 (speed to market)
-- A16Z SPEEDRUN leverage: {data['strategic_fit']['speedrun_leverage']}
-- Competitive moat: {data['strategic_fit']['moat_benefit']}
-- Direct competitors: {', '.join(data['strategic_fit']['competitors'])}
+- {data['strategic_fit'].get('alignment', 'Unknown')} alignment with {data['strategic_fit'].get('score', 0)}/10 fit score
+- Velocity: {data['strategic_fit'].get('velocity', 0)}/10 (speed to market)
+- A16Z SPEEDRUN leverage: {data['strategic_fit'].get('speedrun_leverage', 'None')}
+- Competitive moat: {data['strategic_fit'].get('moat_benefit', 'None')}
+- Direct competitors: {', '.join(data['strategic_fit'].get('competitors', ['Unknown']))}
 
 **5. DEV TEAM IMPACT (50 words):**
-- Capacity: {data['dev_impact']['sprint_capacity_pct']}% of sprint
-- Runway impact: {data['dev_impact']['runway_impact']} of monthly burn
-- Recommendation: {'Use internal team' if data['dev_impact']['parallelizable'] else 'Hire contractor to preserve velocity'}
+- Capacity: {data['dev_impact'].get('sprint_capacity_pct', 0)}% of sprint
+- Runway impact: {data['dev_impact'].get('runway_impact', '0%')} of monthly burn
+- Recommendation: {'Use internal team' if data['dev_impact'].get('parallelizable', False) else 'Hire contractor to preserve velocity'}
 
-**6. RECOMMENDATION (100 words):**
-- 30-day action plan
-- Resource ask
-- Key milestones
-- Risk mitigation
+**6. 30-DAY ACTION PLAN**
+- Week 1: API documentation review and sandbox setup
+- Week 2-3: Core integration development
+- Week 4: QA, beta deployment, metrics instrumentation
 
-**TONE:** Data-driven, confident, board-appropriate. No fluff, all numbers backed by analysis.<|eot_id|><|start_header_id|>user<|end_header_id|>
+**TONE:** Data-driven, confident, board-appropriate.<|eot_id|><|start_header_id|>user<|end_header_id|>
 Generate board memo for {data['target']} based on provided data.<|eot_id|><|start_header_id|>assistant<|end_header_id|>"""
                 
                 memo_response = client.chat_completion(model="meta-llama/Llama-3.2-1B-Instruct", messages=[{"role": "user", "content": memo_prompt}], max_tokens=1200, temperature=0.3)
@@ -783,6 +812,7 @@ st.markdown("""
         </p>
     </div>
 """, unsafe_allow_html=True)
+
 
 
 
