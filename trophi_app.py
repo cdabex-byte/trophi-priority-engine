@@ -597,11 +597,11 @@ if st.session_state.analysis_done and st.session_state.ai_data:
         
         # Financial health check
         st.subheader("Financial Health vs. Company Targets")
-        col1, col2 = st.columns(2)
+                col1, col2 = st.columns(2)
         col1.metric("Target CAC", f"${max_cac}", 
-                   delta=f"Current: ${TROPHI_OPERATING_MODEL['metrics']['cac']}",
+                   delta=f"Current: ${TROPHI_OPERATING_MODEL['current_state']['metrics']['cac']}",
                    help="Customer Acquisition Cost target")
-        col2.metric("Target LTV", TROPHI_OPERATING_MODEL['metrics']['ltv'],
+        col2.metric("Target LTV", TROPHI_OPERATING_MODEL['current_state']['metrics']['ltv'],
                    delta=f"Model: ${data['revenue_potential'].get('ltv', 'TBD')}",
                    help="Lifetime Value target")
         
@@ -779,3 +779,4 @@ st.markdown("""
         </p>
     </div>
 """, unsafe_allow_html=True)
+
