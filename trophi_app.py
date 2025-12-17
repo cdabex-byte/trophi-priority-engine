@@ -225,7 +225,7 @@ class Database:
             logger.info("Database initialized", path=self.db_path)
     
     async def save_analysis(self, result: OpportunityResult) -> str:
-    analysis_id = hashlib.md5(f"{result.target}{result.analysis_date}".encode()).hexdigest()
+        analysis_id = hashlib.md5(f"{result.target}{result.analysis_date}".encode()).hexdigest()
     
     async with aiosqlite.connect(self.db_path) as db:
         # EXPLICITLY list 8 columns (excluding created_at which has DEFAULT)
@@ -566,6 +566,7 @@ def main():
 if __name__ == "__main__":
     main()
     
+
 
 
 
